@@ -38,6 +38,15 @@ class GameScene: SKScene {
         
     }
     
+    //画面をタップした時に呼ばれる
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        //鳥の速度をゼロにする
+        bird.physicsBody?.velocity = CGVector.zero
+        
+        //鳥に縦方向の力を与える
+        bird.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 15))
+    }
+    
     
     func setupGround() {
         //地面の画像を読むこむ
