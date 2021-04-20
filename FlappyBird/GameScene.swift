@@ -110,7 +110,7 @@ class GameScene: SKScene {
     func setupWall() {
         //壁の画像を読むこむ
         let wallTexture = SKTexture(imageNamed: "wall")
-        wallTexture.filteringMode = .linear
+        wallTexture.filteringMode = .linear //当たり判定を行うスプライトに貼り付けるテクスチャは.linearを設定して画質優先にした方が一般的には良いです
         
         //移動する距離を計算
         let movingDistance = CGFloat(self.frame.size.width + wallTexture.size().width)
