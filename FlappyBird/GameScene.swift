@@ -19,12 +19,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     let groundCategory: UInt32 = 1 << 1     // 0...00010
     let wallCateogry: UInt32 = 1 << 2       // 0...00100
     let scoreCategory: UInt32 = 1 << 3      // 0...01000
+    let slothCateogry: UInt32 = 1 << 4      // 0...10000
     
     //スコア用
     var score = 0
     var scoreLabelNode: SKLabelNode!
     var bestScoreLabelNode: SKLabelNode!
     let userDefaults: UserDefaults = UserDefaults.standard
+    
+    //アイテムスコア
+    var itemScore = 0
+    var itemScoreLabelNode: SKLabelNode!
+    
+    //BGM
+    let getItemSound = SKAction.playSoundFileNamed("getItem.mp3", waitForCompletion: false)
     
     //SKView上にシーンが表示された時に呼ばれるメソッド
     override func didMove(to view: SKView) {
@@ -302,16 +310,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         slothTextureA.filteringMode = .linear
         
         //鳥の画像サイズを取得
-        let birdSize = SKTexture(imageNamed: "bird_a").size()
+        //let birdSize = SKTexture(imageNamed: "bird_a").size()
         
         //壁の画像サイズを取得
         let wallSize = SKTexture(imageNamed: "wall").size()
         
         //移動する距離を計算
-        let slothMovingDistance = CGFloat(self.frame.size.width + slothTextureA.size().width)
+        let slothMovingDistance = CGFloat(self.frame.size.width + slothTextureA.size().width + wallSize.width * 3)
         
         //画面外まで移動するアクションを作成
-        let moveSloth = SKAction.moveBy(x: -slothMovingDistance, y: 0, duration: 4)
+        let moveSloth = SKAction.moveBy(x: -slothMovingDistance, y: 0, duration: 5)
         
         //自身を取り除くアクションを作成
         let removeSloth = SKAction.removeFromParent()
@@ -329,32 +337,24 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             sloth.zPosition = -50
             
             //0~random_y_rangeまでのランダム値を生成
-            let random_y = CGFloat.random(in: 0..<300)
+            let random_y = CGFloat.random(in: 0..<400)
             //Y軸の下限にランダムな値を足して、下の壁のY座標を決定
             let under_sloth_y = 50 + random_y
             
             // slothを作成
             let upperSloth = SKSpriteNode(texture: slothTextureA)
-            upperSloth.position = CGPoint(x: 0, y: under_sloth_y + slothTextureA.size().height + 50)
+            upperSloth.position = CGPoint(x: 0 , y: under_sloth_y + slothTextureA.size().height)
             
             //スプライトに物理演算を設定する
-            //upper.physicsBody = SKPhysicsBody(rectangleOf: slothTextureA.size())
-            //upper.physicsBody?.categoryBitMask = self.wallCateogry
+            //upperSloth.physicsBody = SKPhysicsBody(rectangleOf: upperSloth.size)
+            upperSloth.physicsBody = SKPhysicsBody(circleOfRadius: upperSloth.size.height / 2)
+            upperSloth.physicsBody?.categoryBitMask = self.slothCateogry
+            upperSloth.physicsBody?.contactTestBitMask = self.birdCategory
             
             //衝突の時に動かないように設定する
             upperSloth.physicsBody?.isDynamic = false
             
             sloth.addChild(upperSloth)
-            
-            //スコアアップ用のノード
-            let scoreNode = SKNode()
-            scoreNode.position = CGPoint(x: upperSloth.size.width + birdSize.width / 2, y: self.frame.height / 2)
-            scoreNode.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: upperSloth.size.width, height: self.frame.size.height))
-            scoreNode.physicsBody?.isDynamic = false
-            scoreNode.physicsBody?.categoryBitMask = self.scoreCategory
-            scoreNode.physicsBody?.contactTestBitMask = self.birdCategory
-            
-            sloth.addChild(scoreNode)
             
             sloth.run(slothAnimation)
             self.slothNode.addChild(sloth)
@@ -366,6 +366,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let repeatForeverAnimation = SKAction.repeatForever(SKAction.sequence([createSlothAnimation, waitAnimation]))
         
         slothNode.run(repeatForeverAnimation)
+    }
+    
+    //bgmを流す
+    func setMusic() {
+//        let music = SKAudioNode(fileNamed: "getItem.mp3")
+//        self.addChild(music)
+        let music = SKAction.playSoundFileNamed("getItem.mp3", waitForCompletion: true)
+        self.run(music)
     }
     
     //SKPhysicsContactDelegateのメソッド。衝突した時に呼ばれる
@@ -390,6 +398,19 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 userDefaults.synchronize()
             }
             
+        } else if (contact.bodyA.categoryBitMask & slothCateogry) == slothCateogry || (contact.bodyB.categoryBitMask & slothCateogry) == slothCateogry {
+            
+            //slothを消す
+            contact.bodyB.node?.removeFromParent()
+            //効果音を流す
+            self.setMusic()
+            
+            //slothと衝突した
+            print("Item ScoreUp")
+            itemScore += 1
+            itemScoreLabelNode.text = "Item Score:\(itemScore)"
+
+            
         } else {
             //かべか地面と衝突した
             print("GameOver")
@@ -404,12 +425,18 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 self.bird.speed = 0
             })
         }
+        
+
+        
     }
     
     //リスタート処理
     func restart() {
         score = 0
         scoreLabelNode.text = "Score:\(score)"
+        
+        itemScore = 0
+        itemScoreLabelNode.text = "Item Score:\(itemScore)"
         
         bird.position = CGPoint(x: self.frame.size.width * 0.2, y: self.frame.size.height * 0.7)
         bird.physicsBody?.velocity = CGVector.zero
@@ -422,6 +449,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         bird.speed = 1
         scrollNode.speed = 1
+        
+        
     }
     
     //scoreLabelの初期化
@@ -444,6 +473,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let bestScore = userDefaults.integer(forKey: "BEST")
         bestScoreLabelNode.text = "Best Score:\(bestScore)"
         self.addChild(bestScoreLabelNode)
+        
+        itemScore = 0
+        itemScoreLabelNode = SKLabelNode()
+        itemScoreLabelNode.fontColor = UIColor.black
+        itemScoreLabelNode.position = CGPoint(x: 10, y: self.frame.size.height - 120)
+        itemScoreLabelNode.zPosition = 100 //一番手前に表示する
+        itemScoreLabelNode.horizontalAlignmentMode = SKLabelHorizontalAlignmentMode.left
+        itemScoreLabelNode.text = "Item Score:\(itemScore)"
+        self.addChild(itemScoreLabelNode)
     }
  
     
